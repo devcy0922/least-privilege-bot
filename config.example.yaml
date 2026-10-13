@@ -1,0 +1,9 @@
+# Future enrollment document (not parsed by the v0.1 CLI).
+# v0.1 is intentionally configured via explicit --path or --repo CLI flags.
+# Do not place tokens or credentials in this file.
+repositories:
+  - devcy0922/least-privilege-bot
+reporting:
+  mode: issue
+  min_severity: high
+  auto_fix: false
