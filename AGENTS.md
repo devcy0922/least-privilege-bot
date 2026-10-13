@@ -36,3 +36,12 @@ Review any newly added rule for false positives, GitHub semantics and README upd
 - Scheduled CI runs with read permissions, and separate publish job has Issues write.
 - At or above the chosen severity, one Issue is updated/reused instead of duplicated.
 - No UI, database, GitHub App registration, PR creation, or runtime-usage claims.
+
+## v0.1.1 credential inventory constraints
+
+- `inventory` is metadata-only, not a source of definitive API-use or minimum permission evidence.
+- Use GitHub Enterprise **asynchronous** inventory export endpoints; old list/detail inventory endpoints closed on 2026-10-02.
+- Do not persist raw CSV, secret values, token hashes, SSH fingerprints, authenticated download URLs, or API tokens.
+- No credential inventory data belongs in public Actions summaries, issues, PRs, or public artifacts. Run scheduled credential audits from a separately controlled **private** repository.
+- Treat blank last-use timestamp and unknown expiry as unknown, not unused/never-expiring. One credential may appear once per authorizing organization: deduplicate safely.
+- v0.1.1 only recommends human reviews. Never revoke credentials, edit scopes, notify owners, or publish credential inventory automatically.

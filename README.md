@@ -1,10 +1,10 @@
 # Least Privilege Bot
 
-**Audit GitHub Actions `GITHUB_TOKEN` declarations on a schedule — with evidence, not guesses.**
+**Evidence-aware audits for GitHub Actions permissions and enterprise credential inventory, without a dashboard.**
 
 [![CI](https://github.com/devcy0922/least-privilege-bot/actions/workflows/ci.yml/badge.svg)](https://github.com/devcy0922/least-privilege-bot/actions/workflows/ci.yml)
 
-> **v0.1 — static permissions auditor.** This release does **not** observe actual token usage, prove minimum required permissions, change token scopes, or create pull requests. Those are distinct follow-up milestones.
+> **v0.1.1** adds read-only credential inventory analysis. It does **not** observe full API usage, prove minimum permissions, revoke credentials, change token scopes, or create pull requests. No credential metadata is published automatically.
 
 ## Why
 
@@ -65,6 +65,50 @@ GITHUB_TOKEN=... lpbot publish-issue \
 
 The publish token requires repository **Issues: write**. With no findings at or above the threshold, no Issue is created. The command updates an existing open Issue with the same fixed title rather than opening a new one each run. No auto-merge or auto-fix exists in v0.1.
 
+## v0.1.1: credential inventory (read-only)
+
+No UI, database or raw token storage. Admins receive a per-owner inventory, stale-credential review candidates, never-expiring credentials where *explicitly* recorded, overly broad classic OAuth scopes, all-repository coverage, and declared write permissions. Output is JSON and Markdown (`inventory.json`, `inventory.md`). These are **review candidates**, never proof of unused rights.
+
+Three data sources have different coverage:
+
+| Mode | Inputs | Coverage | Required access |
+| --- | --- | --- | --- |
+| Enterprise API | `--enterprise ENTERPRISE` | Enterprise credential export: Classic/Fine-grained PATs, OAuth/GitHub App user tokens, SSH keys, installations, and more | Enterprise owner / View enterprise credentials + `read:enterprise` Classic PAT, or Enterprise credentials: read GitHub App |
+| Organization API | `--org ORG` | **Approved Fine-grained PATs only** with access to org resources; not Classic PATs or all org credentials | GitHub App installation/user token with Organization **Personal access tokens: read** |
+| Offline | `--csv export.csv` | Whatever Enterprise CSV rows were supplied | No network access |
+
+### Enterprise: fully automatic CSV export + audit
+
+GitHub Enterprise Cloud provides asynchronous export APIs. **Older enterprise inventory list/detail endpoints closed on 2026-10-02.** We call `POST /enterprises/{enterprise}/credentials/exports`, poll `GET /enterprises/{enterprise}/credentials/exports/{export_id}`, fetch the short-lived CSV and analyze it **in memory**. No manual download and no CSV saved by `lpbot`. API export quotas apply; use a **weekly** schedule instead of retrying on every failure.
+
+```bash
+export LPBOT_ENTERPRISE_TOKEN='...' # enterprise owner with read:enterprise, or authorized GitHub App token
+lpbot inventory --enterprise YOUR_ENTERPRISE --output-dir /secure/reports
+lpbot inventory --enterprise YOUR_ENTERPRISE --organization YOUR_ORG --stale-days 90
+```
+
+### Organization: approved Fine-grained PATs only
+
+```bash
+export LPBOT_ORG_APP_TOKEN='...' # GitHub App installation/user token, PATs read org permission
+lpbot inventory --org YOUR_ORG --output-dir /secure/reports
+```
+
+GitHub's `GET /orgs/{org}/personal-access-tokens` endpoint explicitly allows **GitHub App tokens only**. An org-owner PAT alone cannot use that endpoint. You install **one** read-only auditing GitHub App for the organization, **not** one App per repository. Do not describe this as a complete enterprise credential inventory.
+
+### Offline / reproducible analysis
+
+```bash
+lpbot inventory --csv /secure/credential-export.csv --output-dir /secure/reports
+lpbot inventory --csv /secure/credential-export.csv --as-of 2026-10-14T00:00:00Z
+```
+
+The Enterprise export may contain multiple rows per credential (one per authorized organization): the analyzer deduplicates and aggregates. Credential aliases use one-way truncated digests of metadata identifiers rather than displaying token IDs, hashes or SSH fingerprints. Names, owners and usage metadata are still sensitive: **never publish reports from this tool to public repositories, Issues, PRs, or public Actions logs**. Run organization/enterprise auditing in a separately protected **private** repository/environment. Reports contain no raw token strings, original hashes, fingerprints, or short-lived download URLs; input CSV is not persisted in API mode.
+
+**Interpretation constraints:** a missing last-used timestamp is **unknown**, not proof of non-use. A blank expiry timestamp is **unknown** unless `expiry_status=never`. `write` is a declared privilege, not automatically unnecessary. `last_used_at` is metadata; API endpoint usage, MCP tool names, Runner job attribution, actual future requirements, and minimum privilege are **not observed** by v0.1.1. Inventory API coverage depends on GitHub plan and administrative privileges.
+
+[Credential inventory architecture and security details](docs/CREDENTIAL_INVENTORY.md)
+
 ## Rule semantics
 
 | Rule | Severity | What is proven | What is **not** proven |
@@ -90,7 +134,8 @@ The scheduled scan inspects **this repository only**. Other repositories must be
 ## Roadmap
 
 - **v0.1 (this release):** deterministic static scanner, reports, scheduled self-audit, optional idempotent Issue publishing.
-- **v0.2:** GitHub App enrollment, conservative draft PR proposals where evidence suffices, rules for generated fixes, richer test fixtures.
+- **v0.1.1:** optional Enterprise API/org API credential metadata inventory with owner risk summaries and no UI or automatic publication.
+- **v0.2:** trace coverage and supported usage correlation, then carefully evaluated Draft PR proposals (only when verifiable).
 - **v0.3:** optional Enterprise Cloud API Insights for supported PAT and GitHub App actors, with coverage gaps explicitly recorded.
 - **v0.4:** optional runner/proxy evidence for `GITHUB_TOKEN` API calls; never equate “not observed” with “not required.”
 

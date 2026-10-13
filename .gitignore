@@ -7,3 +7,8 @@ reports/
 dist/
 build/
 .env
+
+# Credential inventory is confidential, even if no token value is present.
+*.csv
+inventory.json
+inventory.md
