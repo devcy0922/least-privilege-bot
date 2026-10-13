@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "least-privilege-bot"
-version = "0.1.0"
-description = "Evidence-aware GitHub Actions token permission auditor"
+version = "0.1.1"
+description = "Evidence-aware GitHub Actions and credential inventory auditor"
 requires-python = ">=3.11"
 dependencies = ["PyYAML>=6.0.2,<7"]
 
